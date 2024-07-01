@@ -29,7 +29,7 @@
 using namespace std;
 
 /// application run time (source generates the stream for app_run_time seconds, then sends out EOS)
-unsigned long app_run_time = 60 * 1000000000L; // 60 seconds
+unsigned long app_run_time = 3 * 1000000000L; // 60 secondsv  
 
 /// components and topology name
 const string topology_name = "YSB";
