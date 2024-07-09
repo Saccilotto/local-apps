@@ -41,9 +41,6 @@ using namespace chrono;
 unsigned int event_type = 0; // the event type to be filtered
 unsigned int value = 0;
 
-
-//std::map ads_per_campaing(N_CAMPAIGNS); //map dictionary of tuples
-
 // Define the map to store campaign label as key and number of occurrences as value
 std::map<int, int> campaign_events;
 unsigned int total_generated_ads = 0; 
@@ -173,8 +170,7 @@ int main(int argc, char* argv[]) {
         // If the ad_id with the is not in the map, skip the event
         if (it == map.end()) { 
             continue;
-        }
-        else { // If the ad_id is in the map, create the joined event
+        } else { // If the ad_id is in the map, create the joined event
             campaign_record record = relational_table[(*it).second];
             out = new joined_event_t(record.cmp_id, 0);
             out->ts = event.ts;
