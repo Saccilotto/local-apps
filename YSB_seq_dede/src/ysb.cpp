@@ -9,6 +9,7 @@
 #include <fstream>
 
 #include "../includes/util/campaign_generator.hpp"
+#include "queue.hpp"
 
 #define EXEC_TIME 3
 #define N_CAMPAIGNS 10
@@ -23,12 +24,23 @@ unsigned int value = 0;
 map<int, int> campaign_events;
 unsigned int total_generated_ads = 0; 
 long generated_tuples = 0;  // total tuples counter
+double time_taken = 0; // total time taken
+std::chrono::time_point<std::chrono::high_resolution_clock> start_time; // start time
+
+CampaignGenerator campaign_gen;
+
+unordered_map<unsigned long, unsigned int> campaign_map = campaign_gen.getHashMap(); // hashmap
+campaign_record *relational_table = campaign_gen.getRelationalTable(); // relational table
+
+queue::blocking_queue<Item> queue1;
+queue::blocking_queue<Item> queue2;
+queue::blocking_queue<Item> queue3;
 
 void logEvent(int campaignId) {
     campaign_events[campaignId]++;
 }
 
-void printToTerminal(bool printDetails, double source_time_taken) {
+void printToTerminal(bool printDetails, double time_taken) {
     if (printDetails) {
         for (const auto &pair : campaign_events) {
             cout << "Campaign ID: " << pair.first << " - Number of Events: " << pair.second << endl;
@@ -36,10 +48,10 @@ void printToTerminal(bool printDetails, double source_time_taken) {
     } 
     cout << "Total number of generated tuples: " << generated_tuples << endl;
     cout << "Total generated ads: " << total_generated_ads << endl;
-    cout << "Total time taken: " << source_time_taken << endl;
+    cout << "Total time taken: " << time_taken << endl;
 }
 
-void printToOutput(bool printDetails, double source_time_taken) {
+void printToOutput(bool printDetails, double time_taken) {
     ofstream outfile("output.txt");
     if (outfile.is_open()) {
         if (printDetails) {
@@ -49,19 +61,19 @@ void printToOutput(bool printDetails, double source_time_taken) {
         } 
         outfile << "Total number of generated tuples: " << generated_tuples << endl;
         outfile << "Total generated ads: " << total_generated_ads << endl;
-        outfile << "Total time taken: " << source_time_taken << endl;
+        outfile << "Total time taken: " << time_taken << endl;
         outfile.close();
     } else {
         cerr << "Unable to open file for writing" << endl;
     }
 }
 
-void endBench(bool printDetails, bool toTerminalOnly, double source_time_taken) {
+void endBench(bool printDetails, bool toTerminalOnly, double time_taken) {
     if (toTerminalOnly) {
-        printToTerminal(printDetails, source_time_taken);
+        printToTerminal(printDetails, time_taken);
     } else {
-        printToTerminal(printDetails, source_time_taken);
-        printToOutput(printDetails, source_time_taken);
+        printToTerminal(printDetails, time_taken);
+        printToOutput(printDetails, time_taken);
     }
 }
 
@@ -122,20 +134,11 @@ void aggregateFunctionINC(const joined_event_t &event, result_t &result) {
     }
 }
 
-int main(int argc, char* argv[]) {
-    CampaignGenerator campaign_gen;
+void source () {
+    auto start_source_time = std::chrono::high_resolution_clock::now();
+    start_time = start_source_time;
 
-    unordered_map<unsigned long, unsigned int> map = campaign_gen.getHashMap(); // hashmap
-    campaign_record *relational_table = campaign_gen.getRelationalTable(); // relational table
-    
-    init_maps();
-
-    result_t result;
-
-    cout << "start" << endl;
-    double source_time_taken = 0;
-    auto start_source_time = high_resolution_clock::now();
-    while (source_time_taken <= EXEC_TIME) {
+    while (time_taken <= EXEC_TIME) {
         unsigned long **ads_arrays = campaign_gen.getArrays(); // arrays of ads
         unsigned int adsPerCampaigns = campaign_gen.getAdsCompaign(); // number of ads per campaign
 
@@ -149,19 +152,35 @@ int main(int argc, char* argv[]) {
         item.event.event_type = (value % 100000) % 3;
         item.event.ip = 1;
 
-        item.event.ts = round(source_time_taken) * pow(10, -9);
+        item.event.ts = round(time_taken) * pow(10, -9);
 
         value++;
         generated_tuples++;
-    
-        if (item.event.event_type != event_type) {     
-            auto possible_source_end = high_resolution_clock::now();
-            source_time_taken = duration_cast<seconds>(possible_source_end - start_source_time).count();
-            continue;
-        }
+        queue1.enqueue(item);
+    }
+}
 
-        auto it = map.find(item.event.ad_id);
-        if (it == map.end()) {
+void filter () {
+    while (1) {
+        Item item = queue1.dequeue();
+        if (queue1.empty() && time_taken >= EXEC_TIME) {
+            break; 
+        }
+        if (item.event.event_type != event_type) {
+            return;
+        }
+        queue2.enqueue(item);
+    }
+}
+
+void join () {
+    while (1) {
+        Item item = queue2.dequeue();
+        if (queue1.empty() && time_taken >= EXEC_TIME) {
+            break; 
+        }
+        auto it = campaign_map.find(item.event.ad_id);
+        if (it == campaign_map.end()) {
             continue;
         } else {
             campaign_record record = relational_table[(*it).second];
@@ -170,15 +189,36 @@ int main(int argc, char* argv[]) {
             item.joined_event.ad_id = item.event.ad_id;
             item.joined_event.relational_ad_id = record.ad_id;
             item.joined_event.cmp_id = record.cmp_id;
+            queue3.enqueue(item);
         }
+    }
+}
 
+auto aggregate () {
+    while (1) {
+        Item item = queue3.dequeue();
+        if (queue1.empty() && time_taken >= EXEC_TIME) {
+            break; 
+        }
         aggregateFunctionINC(item.joined_event, item.result);
-
         logEvent(item.joined_event.cmp_id);
+        auto possible_time_end = chrono::high_resolution_clock::now();
+        time_taken = chrono::duration_cast<chrono::seconds>(possible_time_end - possible_time_end).count();
+    }
+}
 
-        auto possible_source_end = high_resolution_clock::now();
-        source_time_taken = duration_cast<seconds>(possible_source_end - start_source_time).count();
-    } 
+
+int main(int argc, char* argv[]) {
+    init_maps();  
+
+    cout << "start" << endl;
+
+    source();
+    filter();
+    join();
+    aggregate();
+
+
     cout << "Processing completed." << endl;
 
     // Choose whether to print details and where to print (to terminal or to file)
@@ -197,7 +237,7 @@ int main(int argc, char* argv[]) {
     cout << "printDetails: " << printDetails << endl;
     cout << "toTerminalOnly: " << toTerminalOnly << endl;
 
-    endBench(printDetails, toTerminalOnly, source_time_taken);
+    endBench(printDetails, toTerminalOnly, time_taken);
 
     cout << "End." << endl;
     return 0;
