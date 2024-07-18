@@ -8,7 +8,7 @@
 
 #define MAX_CAPACITY 10
 
-namespace queue {
+namespace queues {
     template<typename T>
     class blocking_queue {
     private:
