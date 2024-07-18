@@ -13,9 +13,6 @@
 #define EXEC_TIME 3
 #define N_CAMPAIGNS 10
 
-// #define NO_DETAILS
-// #define NO_OUTPUT_FILE
-
 using namespace std;
 using namespace chrono;
 
@@ -36,11 +33,10 @@ void printToTerminal(bool printDetails, double source_time_taken) {
         for (const auto &pair : campaign_events) {
             cout << "Campaign ID: " << pair.first << " - Number of Events: " << pair.second << endl;
         }
-    } else {
-        cout << "Total number of generated tuples: " << generated_tuples << endl;
-        cout << "Total generated ads: " << total_generated_ads << endl;
-        cout << "Total time taken: " << source_time_taken << endl;
-    }
+    } 
+    cout << "Total number of generated tuples: " << generated_tuples << endl;
+    cout << "Total generated ads: " << total_generated_ads << endl;
+    cout << "Total time taken: " << source_time_taken << endl;
 }
 
 void printToOutput(bool printDetails, double source_time_taken) {
@@ -50,10 +46,9 @@ void printToOutput(bool printDetails, double source_time_taken) {
             for (const auto &pair : campaign_events) {
                 outfile << "Campaign ID: " << pair.first << " - Number of Events: " << pair.second << endl;
             }
-        } else {
-            outfile << "Total number of generated tuples: " << generated_tuples << endl;
-            outfile << "Total generated ads: " << total_generated_ads << endl;
-        }
+        } 
+        outfile << "Total number of generated tuples: " << generated_tuples << endl;
+        outfile << "Total generated ads: " << total_generated_ads << endl;
         outfile << "Total time taken: " << source_time_taken << endl;
         outfile.close();
     } else {
@@ -184,24 +179,26 @@ int main(int argc, char* argv[]) {
         auto possible_source_end = high_resolution_clock::now();
         source_time_taken = duration_cast<seconds>(possible_source_end - start_source_time).count();
     } 
-
-    cout << "Processing completed. Generating final report..." << endl;
+    cout << "Processing completed." << endl;
 
     // Choose whether to print details and where to print (to terminal or to file)
     bool printDetails = true; // default value to true
     bool toTerminalOnly = false; // default value to false, for printing both to terminal and file
 
-#ifndef NO_OUTPUT_FILE
-    toTerminalOnly = true;
-#endif
-
-#ifndef NO_DETAILS
+#ifdef NO_DETAILS
     printDetails = false;
 #endif
 
+#ifdef NO_OUTPUT_FILE
+    toTerminalOnly = true;
+#endif
+
+    // Debug output
+    cout << "printDetails: " << printDetails << endl;
+    cout << "toTerminalOnly: " << toTerminalOnly << endl;
+
     endBench(printDetails, toTerminalOnly, source_time_taken);
 
-    cout << "Final report generated." << endl;
-
+    cout << "End." << endl;
     return 0;
 }
