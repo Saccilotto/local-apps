@@ -25,13 +25,13 @@ unsigned int value = 0;
 // Define the map to store campaign label as key and number of occurrences as value
 map<int, int> campaign_events;
 unsigned int total_generated_ads = 0; 
-long generated_tuples = 0;  // tuples counter
+long generated_tuples = 0;  // total tuples counter
 
 void logEvent(int campaignId) {
     campaign_events[campaignId]++;
 }
 
-void printToTerminal(bool printDetails) {
+void printToTerminal(bool printDetails, double source_time_taken) {
     if (printDetails) {
         for (const auto &pair : campaign_events) {
             cout << "Campaign ID: " << pair.first << " - Number of Events: " << pair.second << endl;
@@ -39,6 +39,7 @@ void printToTerminal(bool printDetails) {
     } else {
         cout << "Total number of generated tuples: " << generated_tuples << endl;
         cout << "Total generated ads: " << total_generated_ads << endl;
+        cout << "Total time taken: " << source_time_taken << endl;
     }
 }
 
@@ -62,9 +63,11 @@ void printToOutput(bool printDetails, double source_time_taken) {
 
 void endBench(bool printDetails, bool toTerminalOnly, double source_time_taken) {
     if (toTerminalOnly) {
-        printToTerminal(printDetails);
+        printToTerminal(printDetails, source_time_taken);
+    } else {
+        printToTerminal(printDetails, source_time_taken);
+        printToOutput(printDetails, source_time_taken);
     }
-    printToOutput(printDetails, source_time_taken);
 }
 
 struct joined_event_t {
@@ -186,14 +189,14 @@ int main(int argc, char* argv[]) {
 
     // Choose whether to print details and where to print (to terminal or to file)
     bool printDetails = true; // default value to true
-    bool toTerminalOnly = false; // default value to false, to print both to terminal and file
+    bool toTerminalOnly = false; // default value to false, for printing both to terminal and file
 
 #ifndef NO_OUTPUT_FILE
-    toTerminalOnly = false;
+    toTerminalOnly = true;
 #endif
 
 #ifndef NO_DETAILS
-    printDetails = true;
+    printDetails = false;
 #endif
 
     endBench(printDetails, toTerminalOnly, source_time_taken);

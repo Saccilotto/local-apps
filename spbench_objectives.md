@@ -21,4 +21,8 @@ GIT PULL SPBENCH
     if not details:
     no vector no dictionary
 
+4. Separar em estaǵios
+
+5. Tacar no SPBench na branch yahoo 
+
 
